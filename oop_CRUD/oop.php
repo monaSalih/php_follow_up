@@ -99,4 +99,99 @@ class DB_con
         return $stmt->execute([$rid]);
     }
 }
+try {
+    header("Content-Type: application/json");
+    $db = new DB_con();
+
+    // Get HTTP method
+    $method = $_SERVER["REQUEST_METHOD"];
+
+    // Get ID from URL query string
+    $id = isset($_GET["id"]) ? (int) $_GET["id"] : 0;
+
+    // Read JSON data sent by the client
+    $data = json_decode(file_get_contents("php://input"), true);
+
+    switch ($method) {
+
+        case "GET":
+            if ($id > 0) {
+                $user = $db->getUser($id);
+
+                if (!$user) {
+                    http_response_code(404);
+                    echo json_encode(["message" => "User not found"]);
+                    break;
+                }
+
+                echo json_encode($user);
+            } else {
+                echo json_encode($db->getUsers());
+            }
+            break;
+
+        case "POST":
+            if (
+                empty($data["name"]) ||
+                empty($data["email"]) ||
+                empty($data["password"])
+            ) {
+                http_response_code(400);
+                echo json_encode(["message" => "All fields are required"]);
+                break;
+            }
+
+            $db->createUser($data);
+
+            http_response_code(201);
+            echo json_encode(["message" => "User created successfully"]);
+            break;
+
+        case "PUT":
+            if (
+                $id <= 0 ||
+                empty($data["name"]) ||
+                empty($data["email"]) ||
+                empty($data["password"])
+            ) {
+                http_response_code(400);
+                echo json_encode(["message" => "ID and all fields are required"]);
+                break;
+            }
+
+            if (!$db->getUser($id)) {
+                http_response_code(404);
+                echo json_encode(["message" => "User not found"]);
+                break;
+            }
+
+            $db->updateUser($id, $data);
+
+            echo json_encode(["message" => "User updated successfully"]);
+            break;
+
+        case "DELETE":
+            if ($id <= 0 || !$db->getUser($id)) {
+                http_response_code(404);
+                echo json_encode(["message" => "User not found"]);
+                break;
+            }
+
+            $db->deleteUser($id);
+
+            echo json_encode(["message" => "User deleted successfully"]);
+            break;
+
+        default:
+            http_response_code(405);
+            echo json_encode(["message" => "Method not allowed"]);
+    }
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(["message" => "Database error"]);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(["message" => "Server error"]);
+}
 ?>
